@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: honeypot-backend
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
