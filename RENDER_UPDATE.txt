@@ -1,0 +1,16 @@
+import os
+
+# Add this at the top of app.py after imports
+PORT = int(os.environ.get('PORT', 5001))
+
+# At the bottom, change the app.run line to:
+if __name__ == '__main__':
+    print("\n" + "="*70)
+    print("🚀 HONEYPOT ANALYTICS DASHBOARD")
+    print("="*70)
+    print(f"\n📊 Database: {DB_PATH}")
+    print(f"🌐 Port: {PORT}")
+    print(f"\n⚡ Starting server...\n")
+    
+    # Use PORT from environment variable (for Render deployment)
+    app.run(host='0.0.0.0', port=PORT, debug=False)

@@ -1,0 +1,8 @@
+﻿"Timestamp","SourceIP","Username","Password","UserAgent","Tags"
+"2025-11-09T23:20:41.609Z","172.18.0.1","hacker@evil.com","Passw0rd!","Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.6899","special-chars"
+"2025-11-09T23:21:59.780Z","172.18.0.1","{7*7}","admin123","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36","special-chars"
+"2025-11-09T23:29:22.381Z","172.18.0.1","admin","admin","Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.6899",""
+"2025-11-09T23:29:22.956Z","172.18.0.1","root","password","Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.6899",""
+"2025-11-09T23:29:23.529Z","172.18.0.1","admin' OR '1'='1","test","Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.6899","potential-sqli"
+"2025-11-09T23:29:24.100Z","172.18.0.1","test@email.com","MyPassword123","Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.6899","special-chars"
+"2025-11-09T23:29:24.676Z","172.18.0.1","<script>alert(1)</script>","xss","Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.6899","special-chars"

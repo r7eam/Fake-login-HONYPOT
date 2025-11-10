@@ -1,0 +1,132 @@
+{
+  "enrichment_version": "1.0",
+  "description": "Configuration for honeypot event enrichment worker",
+  
+  "maxmind": {
+    "enabled": true,
+    "city_db_path": "/data/GeoLite2-City.mmdb",
+    "asn_db_path": "/data/GeoLite2-ASN.mmdb",
+    "license_key": "${MAXMIND_LICENSE_KEY}"
+  },
+  
+  "rdns": {
+    "enabled": true,
+    "timeout_seconds": 2,
+    "skip_private_ips": false
+  },
+  
+  "tagging_rules": {
+    "enabled": true,
+    
+    "sql_injection": {
+      "enabled": true,
+      "keywords": [
+        "union", "select", "insert", "update", "delete", "drop",
+        "create", "alter", "exec", "script", "javascript",
+        "concat", "char", "cast", "convert", "--", ";--",
+        "or 1=1", "or 1=", "and 1=1", "' or '", "\" or \"", "xp_"
+      ]
+    },
+    
+    "xss_attempt": {
+      "enabled": true,
+      "patterns": [
+        "<script", "<iframe", "<img", "<svg", "onerror=",
+        "onclick=", "onload=", "javascript:", "alert(", "eval("
+      ]
+    },
+    
+    "scanner_detection": {
+      "enabled": true,
+      "user_agents": [
+        "sqlmap", "nikto", "nmap", "masscan", "nessus", "acunetix",
+        "openvas", "metasploit", "burp", "zap", "w3af", "havij",
+        "vega", "skipfish", "dirbuster", "gobuster", "ffuf"
+      ]
+    },
+    
+    "bot_detection": {
+      "enabled": true,
+      "user_agents": [
+        "bot", "crawler", "spider", "scraper", "curl", "wget",
+        "python-requests", "go-http-client", "java/", "libwww",
+        "httpclient", "okhttp", "axios"
+      ]
+    },
+    
+    "brute_force": {
+      "enabled": true,
+      "common_usernames": [
+        "admin", "root", "test", "user", "guest", "administrator",
+        "sa", "demo", "default", "oracle", "support", "postgres",
+        "mysql", "admin123", "webmaster", "info", "sales"
+      ],
+      "common_passwords": [
+        "admin", "password", "123456", "12345678", "qwerty",
+        "test", "root", "letmein", "welcome", "admin123",
+        "password123", "pass", "admin1", "root123"
+      ]
+    },
+    
+    "long_input": {
+      "enabled": true,
+      "username_max_length": 50,
+      "password_max_length": 100
+    },
+    
+    "suspicious_chars": {
+      "enabled": true,
+      "patterns": [
+        "%", "\\x", "../", "..\\", "\\0", "\u0000",
+        "${", "{{", "<%", "%>", "<?", "?>"
+      ]
+    },
+    
+    "command_injection": {
+      "enabled": true,
+      "patterns": [
+        "|", "&&", "||", ";", "`", "$(", "bash", "sh -c",
+        "nc -e", "/bin/", "cmd.exe", "powershell", "/bin/sh",
+        "/bin/bash", "perl -e", "python -c", "ruby -e"
+      ]
+    },
+    
+    "ldap_injection": {
+      "enabled": true,
+      "check_wildcard": true,
+      "check_parens": true
+    }
+  },
+  
+  "threat_intelligence": {
+    "abuseipdb": {
+      "enabled": false,
+      "api_key": "${ABUSEIPDB_API_KEY}",
+      "confidence_threshold": 75
+    },
+    
+    "virustotal": {
+      "enabled": false,
+      "api_key": "${VIRUSTOTAL_API_KEY}",
+      "min_detections": 3
+    },
+    
+    "greynoise": {
+      "enabled": false,
+      "api_key": "${GREYNOISE_API_KEY}"
+    }
+  },
+  
+  "processing": {
+    "incremental_mode": true,
+    "batch_size": 100,
+    "skip_private_ips_geo": true,
+    "flush_every_n_events": 10
+  },
+  
+  "output": {
+    "format": "jsonl",
+    "include_original_event": true,
+    "pretty_print": false
+  }
+}

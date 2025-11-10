@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+env/
+*.egg-info/
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (keep structure but not actual data)
+data/*.jsonl
+data/enriched/
+
+# Analysis outputs (will be regenerated)
+analysis/out/*.csv
+analysis/out/*.png
+analysis/out/*.db
+analysis/out/*.json
+
+# Upload folders
+uploads/
+backend/uploads/
+
+# Test files
+*.test.js
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

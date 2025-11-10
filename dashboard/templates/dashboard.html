@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plot.ly https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self';">
+    <title>Honeypot Analytics Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-900 text-white">
+    <!-- Header -->
+    <nav class="bg-gray-800 border-b border-gray-700">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-shield-alt text-3xl text-red-500"></i>
+                    <h1 class="text-2xl font-bold">Honeypot Analytics Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshData()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8">
+        
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Total Events -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Events</p>
+                        <p class="text-3xl font-bold mt-2" id="total-events">{{ stats.total_events or 0 }}</p>
+                    </div>
+                    <div class="bg-red-500 bg-opacity-20 p-4 rounded-lg">
+                        <i class="fas fa-exclamation-triangle text-3xl text-red-500"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unique IPs -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Unique Attackers</p>
+                        <p class="text-3xl font-bold mt-2" id="unique-ips">{{ stats.unique_ips or 0 }}</p>
+                    </div>
+                    <div class="bg-orange-500 bg-opacity-20 p-4 rounded-lg">
+                        <i class="fas fa-user-secret text-3xl text-orange-500"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Countries -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Countries</p>
+                        <p class="text-3xl font-bold mt-2" id="unique-countries">{{ stats.unique_countries or 0 }}</p>
+                    </div>
+                    <div class="bg-blue-500 bg-opacity-20 p-4 rounded-lg">
+                        <i class="fas fa-globe text-3xl text-blue-500"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attack Types -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Attack Types</p>
+                        <p class="text-3xl font-bold mt-2" id="unique-tags">{{ stats.unique_tags or 0 }}</p>
+                    </div>
+                    <div class="bg-purple-500 bg-opacity-20 p-4 rounded-lg">
+                        <i class="fas fa-crosshairs text-3xl text-purple-500"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Daily Trends -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">
+                    <i class="fas fa-chart-line text-blue-500"></i> Daily Attack Trends
+                </h2>
+                <div id="daily-chart" style="height: 300px;"></div>
+            </div>
+
+            <!-- Hourly Distribution -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">
+                    <i class="fas fa-clock text-green-500"></i> Hourly Distribution
+                </h2>
+                <div id="hourly-chart" style="height: 300px;"></div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Top Countries -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">
+                    <i class="fas fa-flag text-red-500"></i> Top Attack Sources (Countries)
+                </h2>
+                <div id="countries-chart" style="height: 300px;"></div>
+            </div>
+
+            <!-- Attack Types -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">
+                    <i class="fas fa-bullseye text-orange-500"></i> Attack Type Distribution
+                </h2>
+                <div id="tags-chart" style="height: 300px;"></div>
+            </div>
+        </div>
+
+        <!-- Tables Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Top IPs Table -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">
+                    <i class="fas fa-network-wired text-yellow-500"></i> Top Attacking IPs
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left">#</th>
+                                <th class="px-4 py-3 text-left">IP Address</th>
+                                <th class="px-4 py-3 text-right">Attempts</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-ips-table" class="divide-y divide-gray-700">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Top Paths Table -->
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h2 class="text-xl font-bold mb-4">
+                    <i class="fas fa-route text-purple-500"></i> Most Targeted Paths
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left">#</th>
+                                <th class="px-4 py-3 text-left">Path</th>
+                                <th class="px-4 py-3 text-right">Requests</th>
+                            </tr>
+                        </thead>
+                        <tbody id="top-paths-table" class="divide-y divide-gray-700">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 class="text-xl font-bold mb-4">
+                <i class="fas fa-history text-cyan-500"></i> Recent Attack Events
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Time</th>
+                            <th class="px-4 py-3 text-left">IP Address</th>
+                            <th class="px-4 py-3 text-left">Country</th>
+                            <th class="px-4 py-3 text-left">Username</th>
+                            <th class="px-4 py-3 text-left">Path</th>
+                            <th class="px-4 py-3 text-left">Tags</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-events-table" class="divide-y divide-gray-700">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Plotly chart configurations for dark theme
+        const chartLayout = {
+            paper_bgcolor: '#1f2937',
+            plot_bgcolor: '#374151',
+            font: { color: '#e5e7eb' },
+            margin: { l: 50, r: 20, t: 20, b: 50 }
+        };
+
+        // Load all data
+        async function loadData() {
+            try {
+                // Load daily trends
+                const dailyData = await fetch('/api/daily').then(r => {
+                    if (!r.ok) console.error('Daily API failed:', r.status);
+                    return r.json();
+                });
+                plotDailyTrends(dailyData);
+
+                // Load hourly distribution
+                const hourlyData = await fetch('/api/hourly').then(r => {
+                    if (!r.ok) console.error('Hourly API failed:', r.status);
+                    return r.json();
+                });
+                plotHourlyDistribution(hourlyData);
+
+                // Load countries
+                const countriesData = await fetch('/api/countries').then(r => {
+                    if (!r.ok) console.error('Countries API failed:', r.status);
+                    return r.json();
+                });
+                plotCountries(countriesData);
+
+                // Load tags
+                const tagsData = await fetch('/api/tags').then(r => {
+                    if (!r.ok) console.error('Tags API failed:', r.status);
+                    return r.json();
+                });
+                plotTags(tagsData);
+
+                // Load top IPs
+                const ipsData = await fetch('/api/top-ips').then(r => {
+                    if (!r.ok) console.error('Top IPs API failed:', r.status);
+                    return r.json();
+                });
+                populateTopIPs(ipsData);
+
+                // Load top paths
+                const pathsData = await fetch('/api/top-paths').then(r => {
+                    if (!r.ok) console.error('Top paths API failed:', r.status);
+                    return r.json();
+                });
+                populateTopPaths(pathsData);
+
+                // Load recent events
+                const eventsData = await fetch('/api/recent-events').then(r => {
+                    if (!r.ok) console.error('Recent events API failed:', r.status);
+                    return r.json();
+                });
+                populateRecentEvents(eventsData);
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function plotDailyTrends(data) {
+            const trace = {
+                x: data.map(d => d.date),
+                y: data.map(d => d.count),
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#3b82f6', width: 3 },
+                marker: { size: 8, color: '#60a5fa' }
+            };
+
+            Plotly.newPlot('daily-chart', [trace], {
+                ...chartLayout,
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Attacks' }
+            });
+        }
+
+        function plotHourlyDistribution(data) {
+            const trace = {
+                x: data.map(d => d.hour),
+                y: data.map(d => d.count),
+                type: 'bar',
+                marker: { color: '#10b981' }
+            };
+
+            Plotly.newPlot('hourly-chart', [trace], {
+                ...chartLayout,
+                xaxis: { title: 'Hour of Day' },
+                yaxis: { title: 'Attacks' }
+            });
+        }
+
+        function plotCountries(data) {
+            const trace = {
+                labels: data.map(d => d.country),
+                values: data.map(d => d.count),
+                type: 'pie',
+                marker: {
+                    colors: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6', '#6366f1', '#84cc16']
+                }
+            };
+
+            Plotly.newPlot('countries-chart', [trace], {
+                ...chartLayout,
+                showlegend: true
+            });
+        }
+
+        function plotTags(data) {
+            const trace = {
+                x: data.map(d => d.tag),
+                y: data.map(d => d.count),
+                type: 'bar',
+                marker: { color: '#f97316' }
+            };
+
+            Plotly.newPlot('tags-chart', [trace], {
+                ...chartLayout,
+                xaxis: { title: 'Attack Type' },
+                yaxis: { title: 'Occurrences' }
+            });
+        }
+
+        function populateTopIPs(data) {
+            const tbody = document.getElementById('top-ips-table');
+            tbody.innerHTML = data.map((item, index) => `
+                <tr class="hover:bg-gray-700">
+                    <td class="px-4 py-3">${index + 1}</td>
+                    <td class="px-4 py-3 font-mono">${item.ip}</td>
+                    <td class="px-4 py-3 text-right font-bold text-red-400">${item.count}</td>
+                </tr>
+            `).join('');
+        }
+
+        function populateTopPaths(data) {
+            const tbody = document.getElementById('top-paths-table');
+            tbody.innerHTML = data.map((item, index) => `
+                <tr class="hover:bg-gray-700">
+                    <td class="px-4 py-3">${index + 1}</td>
+                    <td class="px-4 py-3 font-mono text-purple-400">${item.path}</td>
+                    <td class="px-4 py-3 text-right font-bold text-orange-400">${item.count}</td>
+                </tr>
+            `).join('');
+        }
+
+        function populateRecentEvents(data) {
+            const tbody = document.getElementById('recent-events-table');
+            tbody.innerHTML = data.map(event => `
+                <tr class="hover:bg-gray-700">
+                    <td class="px-4 py-3 text-gray-400">${new Date(event.timestamp).toLocaleString()}</td>
+                    <td class="px-4 py-3 font-mono text-cyan-400">${event.ip}</td>
+                    <td class="px-4 py-3">${event.country || 'Unknown'}</td>
+                    <td class="px-4 py-3 text-yellow-400">${event.username || '-'}</td>
+                    <td class="px-4 py-3 font-mono text-purple-400">${event.path || '-'}</td>
+                    <td class="px-4 py-3"><span class="bg-red-600 px-2 py-1 rounded text-xs">${event.tags || 'unknown'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function refreshData() {
+            location.reload();
+        }
+
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadData);
+
+        // Auto-refresh every 30 seconds - TEMPORARILY DISABLED FOR DEBUGGING
+        // setInterval(() => {
+        //     loadData();
+        // }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+# ============================================================================
+# COMPLETE FULLCRAFT + HONEYPOT INTEGRATION
+# ============================================================================
+# This compose file includes:
+#   1. Your graduate project (backend NestJS + frontend React)
+#   2. Honeypot protection (fake-login endpoint)
+#   3. NGINX reverse proxy (routes everything)
+#   4. Enrichment pipeline (GeoIP, ASN, rDNS)
+#   5. Alerts service (Slack notifications)
+#   6. Prometheus monitoring (optional)
+# ============================================================================
+
+version: '3.8'
+
+networks:
+  # Application network (backend, frontend, honeypot)
+  appnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+  
+  # Enrichment network (isolated for security)
+  enrichnet:
+    driver: bridge
+    internal: false  # Allow DNS for rDNS lookups
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+
+volumes:
+  hp_data:           # Honeypot events & enriched data
+  postgres_data:     # Database for backend (if you use PostgreSQL)
+  prometheus_data:   # Metrics storage
+
+services:
+  # ============================================================================
+  # 1. BACKEND - Your NestJS Graduate Project
+  # ============================================================================
+  backend:
+    build: ./backend
+    container_name: fullcraft_backend
+    restart: unless-stopped
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Add your database connection, JWT secrets, etc.
+      # - DATABASE_URL=postgresql://user:pass@postgres:5432/fullcraft
+      # - JWT_SECRET=${JWT_SECRET}
+    
+    networks:
+      appnet:
+        ipv4_address: 172.30.0.10
+    
+    volumes:
+      - ./backend/uploads:/app/uploads
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    depends_on:
+      - postgres  # If you use database
+
+  # ============================================================================
+  # 2. FRONTEND - Your React Graduate Project
+  # ============================================================================
+  frontend:
+    build: ./fronted
+    container_name: fullcraft_frontend
+    restart: unless-stopped
+    
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=http://backend:3000  # Or your backend URL
+    
+    networks:
+      appnet:
+        ipv4_address: 172.30.0.20
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ============================================================================
+  # 3. DATABASE - PostgreSQL (if needed for your backend)
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: fullcraft_postgres
+    restart: unless-stopped
+    
+    environment:
+      - POSTGRES_USER=fullcraft
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+      - POSTGRES_DB=fullcraft
+    
+    networks:
+      appnet:
+        ipv4_address: 172.30.0.30
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ============================================================================
+  # 4. HONEYPOT - Fake Login Protection
+  # ============================================================================
+  honeypot:
+    build: ./honeypot-service
+    container_name: fullcraft_honeypot
+    restart: unless-stopped
+    
+    user: "1001:1001"
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - HONEY_LOGFILE=/data/honeypot_events.jsonl
+    
+    networks:
+      appnet:
+        ipv4_address: 172.30.0.40
+      enrichnet:
+        ipv4_address: 172.29.0.5
+    
+    volumes:
+      - hp_data:/data
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ============================================================================
+  # 5. NGINX - Reverse Proxy (Routes ALL Traffic)
+  # ============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: fullcraft_nginx
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      - "443:443"  # For HTTPS (optional)
+    
+    networks:
+      appnet:
+        ipv4_address: 172.30.0.5
+    
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro  # SSL certificates (if needed)
+      - ./nginx/logs:/var/log/nginx
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    
+    depends_on:
+      - backend
+      - frontend
+      - honeypot
+
+  # ============================================================================
+  # 6. ENRICHMENT WORKER - GeoIP, ASN, rDNS, Tagging
+  # ============================================================================
+  enrich:
+    build:
+      context: ./enrich
+    container_name: fullcraft_enrich
+    restart: on-failure
+    
+    user: "1001:1001"
+    read_only: false
+    
+    environment:
+      # Input/Output
+      - RAW_LOG=/data/honeypot_events.jsonl
+      - ENRICHED_OUT=/data/honeypot_enriched.jsonl
+      
+      # State & Cache
+      - STATE_DB=/data/enrich_state.db
+      - CACHE_DIR=/data/cache
+      
+      # Long-running mode (poll every 15 seconds)
+      - PROCESS_INTERVAL=15
+      
+      # Performance tuning
+      - BATCH_SIZE=100
+      - MAX_WORKERS=4
+      - CACHE_MAX_SIZE=10000
+      
+      # TTL settings (seconds)
+      - GEOIP_TTL=86400   # 24 hours
+      - ASN_TTL=86400     # 24 hours
+      - RDNS_TTL=3600     # 1 hour
+      
+      # Timeouts
+      - RDNS_TIMEOUT=2
+      - RDNS_ENABLED=true
+      
+      # Metrics
+      - METRICS_PORT=9090
+      - METRICS_ENABLED=true
+      
+      # GeoIP databases
+      - GEOIP_CITY=/data/GeoLite2-City.mmdb
+      - GEOIP_ASN=/data/GeoLite2-ASN.mmdb
+    
+    networks:
+      enrichnet:
+        ipv4_address: 172.29.0.10
+    
+    volumes:
+      - hp_data:/data
+      - ./data/GeoLite2-City.mmdb:/data/GeoLite2-City.mmdb:ro
+      - ./data/GeoLite2-ASN.mmdb:/data/GeoLite2-ASN.mmdb:ro
+    
+    tmpfs:
+      - /tmp:mode=1777,size=100m
+      - /data/cache:mode=1777,size=500m
+    
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # 7. ALERTS SERVICE - Slack Notifications for Attacks
+  # ============================================================================
+  alerts:
+    build:
+      context: ./alerts
+    container_name: fullcraft_alerts
+    restart: unless-stopped
+    
+    user: "1002:1002"
+    read_only: false
+    
+    environment:
+      - ENRICHED_LOG=/data/honeypot_enriched.jsonl
+      - ALERT_WINDOW_MINUTES=10
+      - BRUTE_FORCE_THRESHOLD=10
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    
+    networks:
+      enrichnet:
+        ipv4_address: 172.29.0.20
+    
+    volumes:
+      - hp_data:/data  # Read-write access for state file
+    
+    tmpfs:
+      - /tmp:mode=1777,size=50m
+    
+    cap_drop:
+      - ALL
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ============================================================================
+  # 8. PROMETHEUS - Metrics Monitoring (OPTIONAL)
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fullcraft_prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]  # Only start with --profile monitoring
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    
+    networks:
+      enrichnet:
+        ipv4_address: 172.29.0.30
+    
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    
+    ports:
+      - "9091:9090"
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

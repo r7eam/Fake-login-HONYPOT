@@ -1,0 +1,123 @@
+# Prometheus Alert Rules for Enrichment Worker
+
+groups:
+  - name: enrichment_alerts
+    interval: 30s
+    rules:
+      
+      # High error rate alert
+      - alert: EnrichmentHighErrorRate
+        expr: rate(error_events_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: enrichment_worker
+        annotations:
+          summary: "High error rate in enrichment worker"
+          description: "Enrichment worker is experiencing {{ $value | humanize }} errors/sec (threshold: 10/sec)"
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#high-error-rate"
+      
+      # Critical error rate alert
+      - alert: EnrichmentCriticalErrorRate
+        expr: rate(error_events_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: critical
+          component: enrichment_worker
+        annotations:
+          summary: "CRITICAL: Enrichment worker error rate exceeded"
+          description: "Enrichment worker has {{ $value | humanize }} errors/sec (threshold: 50/sec)"
+      
+      # Queue backpressure alert
+      - alert: EnrichmentHighQueueSize
+        expr: processing_queue_size > 10000
+        for: 10m
+        labels:
+          severity: warning
+          component: enrichment_worker
+        annotations:
+          summary: "Enrichment queue size is high"
+          description: "Processing queue has {{ $value }} events waiting (threshold: 10000)"
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#high-queue-size"
+      
+      # Critical queue size
+      - alert: EnrichmentCriticalQueueSize
+        expr: processing_queue_size > 50000
+        for: 5m
+        labels:
+          severity: critical
+          component: enrichment_worker
+        annotations:
+          summary: "CRITICAL: Enrichment queue overloaded"
+          description: "Processing queue has {{ $value }} events (threshold: 50000). Worker may be failing."
+      
+      # Low cache hit rate
+      - alert: EnrichmentLowCacheHitRate
+        expr: cache_hit_rate_percent < 50
+        for: 15m
+        labels:
+          severity: warning
+          component: enrichment_worker
+        annotations:
+          summary: "Enrichment cache hit rate is low"
+          description: "Cache hit rate is {{ $value }}% (threshold: 50%). Performance may be degraded."
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#low-cache-hit-rate"
+      
+      # Worker down
+      - alert: EnrichmentWorkerDown
+        expr: up{job="enrichment_worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: enrichment_worker
+        annotations:
+          summary: "Enrichment worker is down"
+          description: "Enrichment worker has been down for 2 minutes"
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#worker-down"
+      
+      # High latency (p90)
+      - alert: EnrichmentHighLatency
+        expr: processing_latency_seconds{quantile="0.9"} > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: enrichment_worker
+        annotations:
+          summary: "Enrichment processing latency is high"
+          description: "P90 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#high-latency"
+      
+      # No events processed (worker stuck)
+      - alert: EnrichmentNoProgress
+        expr: rate(processed_events_total[10m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          component: enrichment_worker
+        annotations:
+          summary: "Enrichment worker not processing events"
+          description: "No events processed in last 15 minutes. Worker may be stuck."
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#worker-stuck"
+      
+      # Disk space warning
+      - alert: EnrichmentDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          component: enrichment_worker
+        annotations:
+          summary: "Enrichment data disk space low"
+          description: "Only {{ $value | humanize }}% disk space remaining on /data"
+          runbook: "https://github.com/yourorg/honeypot/wiki/Runbooks#disk-space-low"
+      
+      # Disk space critical
+      - alert: EnrichmentDiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}) * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+          component: enrichment_worker
+        annotations:
+          summary: "CRITICAL: Enrichment disk space critically low"
+          description: "Only {{ $value | humanize }}% disk space remaining on /data. Immediate action required."

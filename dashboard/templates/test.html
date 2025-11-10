@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alert Debug Test</title>
+</head>
+<body>
+    <h1>Alert Debug Test Page</h1>
+    <p>This is a clean page with no auto-refresh or external scripts.</p>
+    <p id="timer">Time elapsed: 0 seconds</p>
+    <p>If you see an alert on this page, it's coming from:</p>
+    <ul>
+        <li>Browser extension</li>
+        <li>Network monitoring tool</li>
+        <li>System-level software</li>
+    </ul>
+    <p>If you DON'T see an alert on this page, the issue is in the dashboard HTML.</p>
+    
+    <script>
+        let seconds = 0;
+        setInterval(() => {
+            seconds++;
+            document.getElementById('timer').textContent = `Time elapsed: ${seconds} seconds`;
+            console.log(`${seconds} seconds - No alert triggered`);
+        }, 1000);
+    </script>
+</body>
+</html>

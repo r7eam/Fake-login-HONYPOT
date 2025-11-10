@@ -1,0 +1,50 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="#1976d2" stroke="#0d47a1" stroke-width="3"/>
+  
+  <!-- Inner Circle -->
+  <circle cx="100" cy="100" r="80" fill="#2196f3" opacity="0.9"/>
+  
+  <!-- Wrench (left tool) -->
+  <g transform="translate(55, 70) rotate(-30 0 0)">
+    <rect x="-4" y="0" width="8" height="50" fill="#fafafa" rx="2"/>
+    <circle cx="0" cy="0" r="8" fill="#fafafa"/>
+    <circle cx="0" cy="0" r="5" fill="#1976d2"/>
+    <rect x="-8" y="-3" width="16" height="6" fill="#fafafa" rx="1"/>
+  </g>
+  
+  <!-- Hammer (right tool) -->
+  <g transform="translate(145, 70) rotate(30 0 0)">
+    <rect x="-3" y="10" width="6" height="45" fill="#fafafa" rx="2"/>
+    <rect x="-12" y="0" width="24" height="14" fill="#fafafa" rx="2"/>
+    <rect x="-10" y="2" width="20" height="10" fill="#ff9800"/>
+  </g>
+  
+  <!-- Screwdriver (center) -->
+  <g transform="translate(100, 60)">
+    <rect x="-2.5" y="0" width="5" height="35" fill="#ffc107" rx="1"/>
+    <rect x="-3" y="35" width="6" height="25" fill="#757575" rx="1"/>
+    <polygon points="-3,60 0,65 3,60" fill="#424242"/>
+  </g>
+  
+  <!-- Gear decoration (bottom) -->
+  <g transform="translate(100, 135)">
+    <circle cx="0" cy="0" r="20" fill="#fafafa"/>
+    <circle cx="0" cy="0" r="12" fill="#1976d2"/>
+    <!-- Gear teeth -->
+    <rect x="-3" y="-22" width="6" height="6" fill="#fafafa"/>
+    <rect x="-3" y="16" width="6" height="6" fill="#fafafa"/>
+    <rect x="-22" y="-3" width="6" height="6" fill="#fafafa"/>
+    <rect x="16" y="-3" width="6" height="6" fill="#fafafa"/>
+    <rect x="-16" y="-16" width="6" height="6" fill="#fafafa" transform="rotate(45 -13 -13)"/>
+    <rect x="10" y="-16" width="6" height="6" fill="#fafafa" transform="rotate(-45 13 -13)"/>
+    <rect x="-16" y="10" width="6" height="6" fill="#fafafa" transform="rotate(-45 -13 13)"/>
+    <rect x="10" y="10" width="6" height="6" fill="#fafafa" transform="rotate(45 13 13)"/>
+  </g>
+  
+  <!-- Text: FULL -->
+  <text x="100" y="175" font-family="Arial, sans-serif" font-size="20" font-weight="bold" text-anchor="middle" fill="#fafafa">FULL</text>
+  
+  <!-- Text: CRAFT -->
+  <text x="100" y="192" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#ff9800">CRAFT</text>
+</svg>

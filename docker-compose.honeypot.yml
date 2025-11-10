@@ -1,0 +1,396 @@
+# ============================================================================
+# HONEYPOT DEPLOYMENT COMPOSE - PHASE 3 & 4
+# ============================================================================
+# Services:
+#   - nginx: Reverse proxy (admin.fullcraft.com -> honeypot)
+#   - honeypot: Fake login microservice with security restrictions
+#   - enrich: Enrichment worker (GeoIP, ASN, rDNS, tagging) - HARDENED
+#   - alerts: Alert aggregator with Slack integration
+#   - prometheus: Metrics collection (optional)
+# ============================================================================
+
+networks:
+  honeynet:
+    driver: bridge
+    internal: false  # Allow outbound for honeypot
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+  
+  enrichnet:
+    driver: bridge
+    internal: false  # Allow DNS for rDNS lookups
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
+
+volumes:
+  hp_data:
+  prometheus_data:
+
+services:
+  # ============================================================================
+  # HONEYPOT SERVICE - Core fake login microservice
+  # ============================================================================
+  honeypot:
+    build: ./honeypot-service
+    container_name: fullcraft_honeypot
+    hostname: honeypot
+    restart: unless-stopped
+    
+    # Security: Run as non-root user
+    user: "1001:1001"
+    
+    ports:
+      - "8080:8080"  # EXPOSE honeypot for testing
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - HONEY_LOGFILE=/data/honeypot_events.jsonl
+    
+    networks:
+      honeynet:
+        ipv4_address: 172.28.0.10
+    
+    volumes:
+      # Mount data directory with read-write for honeypot user
+      - ./data:/data:rw
+    
+    # Security: Restrict capabilities
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    
+    # Security: Read-only root filesystem (except /data and /tmp)
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50M
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 20s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    
+    # Security: Prevent privilege escalation
+    security_opt:
+      - no-new-privileges:true
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # NGINX REVERSE PROXY - Routes admin.fullcraft.com to honeypot
+  # ============================================================================
+  nginx:
+    image: nginx:stable-alpine
+    container_name: fullcraft_honeypot_nginx
+    hostname: nginx-proxy
+    depends_on:
+      honeypot:
+        condition: service_healthy
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      # Uncomment for HTTPS (requires SSL certificates)
+      # - "443:443"
+    
+    volumes:
+      # Nginx configuration
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      
+      # Data directory (read-only for nginx)
+      - ./data:/data:ro
+      
+      # SSL certificates (optional)
+      # - ./nginx/certs:/etc/nginx/certs:ro
+      
+      # Logs
+      - ./nginx/logs:/var/log/nginx
+    
+    networks:
+      honeynet:
+        ipv4_address: 172.28.0.5
+    
+    # Security: Read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:noexec,nosuid,size=50M
+      - /var/run:noexec,nosuid,size=10M
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================================
+  # ENRICHMENT SERVICE - Phase 4 Worker (HARDENED)
+  # ============================================================================
+  # Long-running service with file offset persistence
+  # Processes new events incrementally every 15 seconds
+  enrich:
+    build:
+      context: ./enrich
+      dockerfile: Dockerfile
+    container_name: fullcraft_enrich
+    hostname: enrich
+    restart: on-failure  # Restart on crash, not on manual stop
+    
+    depends_on:
+      honeypot:
+        condition: service_healthy
+    
+    environment:
+      # Core paths
+      - RAW_LOG=/data/honeypot_events.jsonl
+      - ENRICHED_OUT=/data/honeypot_enriched.jsonl
+      - STATE_DB=/data/enrich_state.db
+      - CACHE_DIR=/data/cache
+      
+      # MaxMind databases
+      - GEOIP_CITY=/data/GeoLite2-City.mmdb
+      - GEOIP_ASN=/data/GeoLite2-ASN.mmdb
+      
+      # Long-running mode
+      - PROCESS_INTERVAL=15  # Poll every 15 seconds
+      
+      # Performance tuning
+      - BATCH_SIZE=100
+      - MAX_WORKERS=4
+      - CACHE_MAX_SIZE=10000
+      
+      # TTL settings (seconds)
+      - GEOIP_TTL=86400     # 24 hours
+      - ASN_TTL=86400       # 24 hours
+      - RDNS_TTL=3600       # 1 hour
+      
+      # Timeouts
+      - RDNS_TIMEOUT=2      # 2 seconds
+      - RDNS_ENABLED=true
+      
+      # Metrics
+      - METRICS_PORT=9090
+      - METRICS_ENABLED=true
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    networks:
+      enrichnet:
+        ipv4_address: 172.29.0.10
+    
+    # External DNS only (no internal access)
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    
+    volumes:
+      - ./data:/data:rw
+    
+    # Security: Non-root user
+    user: "1001:1001"
+    
+    # Security: Read-only filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100M
+      - /data/cache:rw,noexec,nosuid,size=500M
+    
+    # Security: Drop all capabilities
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # For metrics server
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Health check (metrics endpoint)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9090/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+  
+  # ============================================================================
+  # ALERTS SERVICE - Slack notifications for brute-force patterns
+  # ============================================================================
+  alerts:
+    build:
+      context: ./alerts
+      dockerfile: Dockerfile
+    container_name: fullcraft_alerts
+    hostname: alerts
+    restart: unless-stopped
+    
+    depends_on:
+      enrich:
+        condition: service_healthy
+    
+    environment:
+      - ENRICHED_LOG=/data/honeypot_enriched.jsonl
+      - ALERT_WINDOW_MINUTES=10
+      - BRUTE_FORCE_THRESHOLD=10
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}  # Set in .env file
+    
+    networks:
+      enrichnet:
+        ipv4_address: 172.29.0.20
+    
+    volumes:
+      - ./data:/data:ro  # Read-only access
+    
+    # Security: Non-root user
+    user: "1002:1002"
+    
+    # Security: Read-only filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=50M
+    
+    # Security: Drop all capabilities
+    cap_drop:
+      - ALL
+    
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  # ============================================================================
+  # PROMETHEUS (OPTIONAL) - Metrics collection for enrichment worker
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fullcraft_prometheus
+    hostname: prometheus
+    
+    # Don't auto-start - enable with --profile monitoring
+    profiles:
+      - monitoring
+    
+    restart: unless-stopped
+    
+    user: "nobody:nogroup"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    
+    networks:
+      enrichnet:
+        ipv4_address: 172.29.0.30
+    
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 100M
+    
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    
+    ports:
+      - "9091:9090"  # Expose Prometheus UI
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

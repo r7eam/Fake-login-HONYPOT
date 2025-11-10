@@ -1,0 +1,91 @@
+﻿===============================================================================
+                    HONEYPOT SECURITY ANALYSIS REPORT
+===============================================================================
+Generated: 2025-11-10 02:43:18
+Total Attacks Captured: 7
+Analysis Period: 2025-11-09T23:20:41.609Z to 2025-11-09T23:29:24.676Z
+
+===============================================================================
+                         ATTACK TYPE BREAKDOWN
+===============================================================================
+
+1. BRUTE FORCE ATTACKS - Count: 2
+   Risk Level: MEDIUM
+   Description: Attackers trying common default credentials
+   
+   Examples:
+   â€¢ Username: admin | Password: admin | IP: 172.18.0.1
+   â€¢ Username: root | Password: password | IP: 172.18.0.1
+
+
+2. SQL INJECTION ATTEMPTS - Count: 
+   Risk Level: HIGH
+   Description: Malicious SQL code injection to bypass authentication
+   
+   Examples:
+   â€¢ Username: admin' OR '1'='1 | Password: test | IP: 172.18.0.1
+
+
+3. CREDENTIAL STUFFING - Count: 2
+   Risk Level: HIGH
+   Description: Using stolen email/password combinations from data breaches
+   
+   Examples:
+   â€¢ Username: hacker@evil.com | Password: Passw0rd! | IP: 172.18.0.1
+   â€¢ Username: test@email.com | Password: MyPassword123 | IP: 172.18.0.1
+
+
+4. CROSS-SITE SCRIPTING (XSS) - Count: 
+   Risk Level: HIGH
+   Description: Attempting to inject malicious scripts
+   
+   Examples:
+   â€¢ Username: <script>alert(1)</script> | Password: xss | IP: 172.18.0.1
+
+
+===============================================================================
+                         TOP ATTACKING IP ADDRESSES
+===============================================================================
+172.18.0.1 - 7 attempts
+
+
+===============================================================================
+                      MOST COMMONLY TRIED CREDENTIALS
+===============================================================================
+
+TOP 10 USERNAMES:
+  admin' OR '1'='1 - tried 1 times
+  test@email.com - tried 1 times
+  <script>alert(1)</script> - tried 1 times
+  root - tried 1 times
+  hacker@evil.com - tried 1 times
+  {7*7} - tried 1 times
+  admin - tried 1 times
+
+
+TOP 10 PASSWORDS:
+  test - tried 1 times
+  MyPassword123 - tried 1 times
+  xss - tried 1 times
+  password - tried 1 times
+  Passw0rd! - tried 1 times
+  admin123 - tried 1 times
+  admin - tried 1 times
+
+
+===============================================================================
+                      SECURITY RECOMMENDATIONS
+===============================================================================
+
+âš  Credential Stuffing Detected
+   - Implement multi-factor authentication (MFA)
+   - Monitor for leaked password databases
+   - Force password changes for compromised accounts
+
+âœ“ Continue monitoring honeypot logs daily
+âœ“ Block IP addresses with >10 failed attempts
+âœ“ Update security rules based on new attack patterns
+
+===============================================================================
+                            END OF REPORT
+===============================================================================
